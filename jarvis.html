@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S.</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --arc:#ffaa00;--arc2:#cc7700;--gold:#ffcc00;--red:#ff2244;--ok:#ffcc00;
+  --bg:#0d0800;--bg2:#180b00;
+  --border:rgba(255,160,0,0.18);--border2:rgba(255,160,0,0.5);
+  --text:#ffe0a0;--dim:rgba(255,200,100,0.38);
+  --hud:'Orbitron',sans-serif;--raj:'Rajdhani',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:var(--raj);color:var(--text);cursor:crosshair;}
+
+#app{
+  position:fixed;inset:0;display:grid;
+  grid-template-columns:260px 1fr 260px;
+  grid-template-rows:64px 1fr 210px;
+  grid-template-areas:"hdr hdr hdr" "lft ctr rgt" "bot bot bot";
+}
+
+/* ── BG ── */
+#bg-canvas{position:fixed;inset:0;z-index:0;}
+#scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--arc),transparent);
+  opacity:0.15;animation:scan 8s linear infinite;}
+@keyframes scan{0%{top:-2px}100%{top:100%}}
+#vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,0.78) 100%);}
+.corner{position:fixed;width:28px;height:28px;z-index:50;pointer-events:none;}
+.c-tl{top:7px;left:7px;border-top:2px solid var(--arc);border-left:2px solid var(--arc);}
+.c-tr{top:7px;right:7px;border-top:2px solid var(--arc);border-right:2px solid var(--arc);}
+.c-bl{bottom:7px;left:7px;border-bottom:2px solid var(--arc);border-left:2px solid var(--arc);}
+.c-br{bottom:7px;right:7px;border-bottom:2px solid var(--arc);border-right:2px solid var(--arc);}
+
+/* ── HEADER ── */
+#hdr{grid-area:hdr;z-index:20;position:relative;
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;
+  background:linear-gradient(180deg,rgba(18,8,0,0.98),rgba(18,8,0,0.55));
+  border-bottom:1px solid var(--border2);}
+#logo{font-family:var(--hud);font-size:22px;font-weight:900;color:var(--arc);
+  letter-spacing:7px;text-shadow:0 0 28px var(--arc),0 0 60px rgba(255,160,0,0.2);}
+#logo small{display:block;font-size:7px;color:var(--dim);letter-spacing:3px;margin-top:1px;}
+#hdr-mid{display:flex;flex-direction:column;align-items:center;gap:2px;}
+#clock{font-family:var(--hud);font-size:20px;color:var(--arc);letter-spacing:4px;text-shadow:0 0 12px var(--arc);}
+#datestr{font-size:8px;color:var(--dim);letter-spacing:3px;}
+#hdr-right{display:flex;align-items:center;gap:18px;}
+.hstat{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.hstat-v{font-family:var(--hud);font-size:12px;color:var(--arc);}
+.hstat-l{font-size:7px;color:var(--dim);letter-spacing:2px;}
+#arc-widget svg{display:block;animation:spinSlow 12s linear infinite;}
+@keyframes spinSlow{to{transform:rotate(360deg)}}
+
+/* ── LEFT ── */
+#lft{grid-area:lft;z-index:10;border-right:1px solid var(--border);
+  background:linear-gradient(90deg,rgba(14,6,0,0.93),rgba(20,8,0,0.5));
+  padding:16px 14px;display:flex;flex-direction:column;gap:14px;overflow:hidden;}
+.ptitle{font-family:var(--hud);font-size:7px;color:var(--arc2);letter-spacing:4px;
+  padding-bottom:6px;border-bottom:1px solid var(--border);}
+.gw{display:flex;flex-direction:column;gap:3px;}
+.grow{display:flex;justify-content:space-between;}
+.glbl{font-size:9px;color:var(--dim);letter-spacing:1px;}
+.gval{font-family:var(--hud);font-size:9px;color:var(--arc);}
+.gtrack{height:2px;background:rgba(255,160,0,0.07);border-radius:1px;margin-top:2px;}
+.gfill{height:100%;border-radius:1px;transition:width 1.2s ease;}
+.gfill.a{background:var(--arc);box-shadow:0 0 5px var(--arc);}
+.gfill.g{background:var(--gold);box-shadow:0 0 5px var(--gold);}
+.gfill.o{background:var(--ok);box-shadow:0 0 5px var(--ok);}
+.gfill.r{background:var(--red);}
+#radar-wrap{display:flex;justify-content:center;}
+#radar-c{display:block;opacity:0.75;}
+#syslog{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2px;}
+.logline{font-size:8px;color:var(--dim);padding:2px 0;border-bottom:1px solid rgba(255,160,0,0.04);
+  animation:logIn 0.3s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.logline.ok{color:var(--ok);}.logline.w{color:var(--gold);}.logline.e{color:var(--red);}
+@keyframes logIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1}}
+/* ── SIDE NEURAL — artık kullanılmıyor ── */
+#side-neural-canvas{display:none;}
+
+/* ── CENTER ── */
+#ctr{grid-area:ctr;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
+#neural-canvas{display:none;}
+#jface{position:relative;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;user-select:none;}
+#rings{position:relative;width:320px;height:320px;}
+#rings svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+#center-neural{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;}
+.r1{animation:rr 22s linear infinite;}
+.r2{animation:rr 13s linear infinite reverse;}
+.r3{animation:rr 7s linear infinite;}
+@keyframes rr{to{transform:rotate(360deg);transform-origin:50% 50%;}}
+#jname{font-family:var(--hud);font-size:28px;font-weight:900;color:var(--arc);letter-spacing:11px;text-shadow:0 0 32px var(--arc),0 0 65px rgba(255,160,0,0.22);margin-top:16px;}
+#jtag{font-size:8px;color:var(--dim);letter-spacing:5px;margin-top:4px;}
+#jstatus{font-family:var(--hud);font-size:9px;color:var(--arc);letter-spacing:3px;margin-top:10px;min-height:14px;text-shadow:0 0 10px var(--arc);}
+
+/* ── VOICE BTN ── */
+#vbtn{position:relative;z-index:15;pointer-events:all;margin-top:20px;
+  width:76px;height:76px;border-radius:50%;
+  background:rgba(255,160,0,0.07);border:2px solid var(--arc2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:28px;transition:all 0.3s;box-shadow:0 0 16px rgba(255,160,0,0.1);}
+#vbtn:hover{background:rgba(255,160,0,0.13);border-color:var(--arc);box-shadow:0 0 36px rgba(255,160,0,0.22);}
+#vbtn.listening{background:rgba(255,34,68,0.1);border-color:var(--red);animation:pm 1s ease-in-out infinite;}
+#vbtn.speaking{background:rgba(255,160,0,0.13);border-color:var(--arc);animation:ps 0.85s ease-in-out infinite;}
+@keyframes pm{0%,100%{box-shadow:0 0 18px rgba(255,34,68,0.25)}50%{box-shadow:0 0 55px rgba(255,34,68,0.55)}}
+@keyframes ps{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#vbtn-lbl{position:absolute;bottom:-24px;font-family:var(--hud);font-size:7px;color:var(--dim);letter-spacing:3px;white-space:nowrap;}
+
+/* ── RIGHT ── */
+#rgt{grid-area:rgt;z-index:10;border-left:1px solid var(--border);
+  background:linear-gradient(270deg,rgba(14,6,0,0.93),rgba(20,8,0,0.5));
+  padding:16px 14px;display:flex;flex-direction:column;gap:12px;overflow:hidden;}
+#transcript{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;scrollbar-width:none;}
+#transcript::-webkit-scrollbar{display:none;}
+.tmsg{animation:fu 0.35s ease;}
+@keyframes fu{from{opacity:0;transform:translateY(5px)}to{opacity:1}}
+.tlbl{font-size:7px;letter-spacing:2px;margin-bottom:3px;}
+.tlbl.j{color:var(--arc);}.tlbl.u{color:var(--gold);text-align:right;}
+.tbub{font-size:11px;line-height:1.6;color:var(--text);padding:7px 10px;border:1px solid var(--border);background:rgba(255,160,0,0.04);}
+.tbub.u{text-align:right;border-color:rgba(255,204,0,0.2);background:rgba(255,204,0,0.03);}
+.tbub.file{border-color:rgba(255,160,0,0.3);background:rgba(255,120,0,0.04);font-size:10px;}
+
+/* ── BOTTOM ── */
+#bot{grid-area:bot;z-index:10;
+  background:linear-gradient(0deg,rgba(14,6,0,0.97),rgba(20,8,0,0.65));
+  border-top:1px solid var(--border);
+  display:flex;flex-direction:column;padding:10px 20px 12px;gap:8px;}
+
+/* mode tabs */
+#mode-tabs{display:flex;gap:6px;align-items:center;}
+.mtab{padding:4px 14px;font-family:var(--hud);font-size:7px;letter-spacing:2px;
+  border:1px solid var(--border);color:var(--dim);background:transparent;cursor:pointer;transition:all 0.15s;}
+.mtab.active{color:var(--arc);border-color:var(--arc);background:rgba(255,160,0,0.08);}
+#mode-sep{flex:1;}
+
+/* LM connection inline */
+#lm-inline{display:flex;align-items:center;gap:6px;}
+#lmurl{background:rgba(255,160,0,0.05);border:1px solid var(--border);color:var(--text);
+  padding:4px 8px;font-family:var(--raj);font-size:10px;outline:none;width:240px;}
+#lmurl:focus{border-color:var(--arc2);}
+#connbtn{padding:4px 12px;background:rgba(255,160,0,0.08);border:1px solid var(--arc2);
+  color:var(--arc);font-family:var(--hud);font-size:7px;letter-spacing:2px;cursor:pointer;transition:all 0.15s;}
+#connbtn:hover{background:var(--arc);color:#000;}
+.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sdot.on{background:var(--ok);box-shadow:0 0 5px var(--ok);animation:bl 2s infinite;}
+.sdot.off{background:var(--red);}.sdot.wait{background:var(--gold);animation:bl 0.5s infinite;}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:0.2}}
+#lmstxt{font-size:8px;color:var(--dim);white-space:nowrap;}
+
+/* input row */
+#input-row{display:flex;gap:6px;align-items:stretch;}
+#user-input{
+  flex:1;background:rgba(255,160,0,0.04);border:1px solid var(--border);
+  color:#fff;padding:8px 12px;font-family:var(--raj);font-size:13px;
+  outline:none;resize:none;min-height:38px;max-height:80px;transition:border-color 0.2s;}
+#user-input:focus{border-color:var(--arc2);}
+#user-input::placeholder{color:var(--dim);}
+#user-input:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* action buttons */
+.abtn{
+  width:42px;min-height:38px;background:transparent;
+  border:1px solid var(--border);cursor:pointer;
+  color:var(--dim);display:flex;align-items:center;justify-content:center;
+  font-size:16px;transition:all 0.15s;flex-shrink:0;}
+.abtn:hover{border-color:var(--arc);color:var(--arc);background:rgba(255,160,0,0.08);}
+.abtn.mic-on{border-color:var(--red);color:var(--red);background:rgba(255,34,68,0.08);animation:pm 1s infinite;}
+#sendbtn{width:60px;background:rgba(255,160,0,0.07);border-color:var(--arc2);color:var(--arc);
+  font-family:var(--hud);font-size:7px;letter-spacing:1px;}
+#sendbtn:hover{background:var(--arc);color:#000;}
+
+/* waveform row */
+#wave-row{display:flex;align-items:center;gap:8px;}
+#waveform{display:flex;align-items:center;gap:2px;height:28px;flex:1;}
+.wbar{width:3px;border-radius:2px;background:var(--arc);box-shadow:0 0 3px var(--arc);min-height:2px;}
+#quick-row{display:flex;gap:5px;flex-shrink:0;}
+.qbtn{padding:4px 10px;background:rgba(255,160,0,0.05);border:1px solid var(--border);
+  color:var(--dim);font-family:var(--hud);font-size:7px;letter-spacing:1px;cursor:pointer;transition:all 0.15s;}
+.qbtn:hover{border-color:var(--arc);color:var(--arc);background:rgba(255,160,0,0.1);}
+
+/* file drop zone */
+#drop-zone{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(20,8,0,0.88);
+  border:2px dashed var(--arc);
+  align-items:center;justify-content:center;flex-direction:column;gap:12px;}
+#drop-zone.show{display:flex;}
+#drop-zone-txt{font-family:var(--hud);font-size:16px;color:var(--arc);letter-spacing:4px;text-shadow:0 0 20px var(--arc);}
+#drop-zone-sub{font-size:10px;color:var(--dim);letter-spacing:3px;}
+
+/* file badge */
+.file-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,140,0,0.08);border:1px solid rgba(255,160,0,0.3);
+  padding:3px 10px;font-size:9px;color:var(--ok);
+  font-family:var(--hud);letter-spacing:1px;margin-bottom:4px;}
+.file-badge .rm{cursor:pointer;color:var(--red);margin-left:4px;font-size:11px;}
+
+/* notif */
+#notif{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:300;
+  padding:7px 20px;background:rgba(18,8,0,0.97);border:1px solid var(--arc2);
+  font-family:var(--hud);font-size:9px;color:var(--arc);letter-spacing:2px;
+  display:none;white-space:nowrap;box-shadow:0 0 25px rgba(255,160,0,0.18);}
+#notif.show{display:block;animation:ni 0.2s ease;}
+@keyframes ni{from{opacity:0;top:68px}to{opacity:1;top:76px}}
+
+/* file input hidden */
+#file-input{display:none;}
+
+/* thinking dots */
+.td{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--arc);animation:bl 0.8s infinite;margin:0 2px;}
+.td:nth-child(2){animation-delay:0.2s;}.td:nth-child(3){animation-delay:0.4s;}
+
+/* progress */
+#file-progress{font-size:9px;color:var(--dim);letter-spacing:1px;display:none;}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<canvas id="side-neural-canvas"></canvas>
+<div id="scanline"></div>
+<div id="vignette"></div>
+<div class="corner c-tl"></div><div class="corner c-tr"></div>
+<div class="corner c-bl"></div><div class="corner c-br"></div>
+<div id="notif"></div>
+
+<!-- File Drop Zone -->
+<div id="drop-zone">
+  <div id="drop-zone-txt">📁 DOSYAYI BIRAK</div>
+  <div id="drop-zone-sub">TXT · PDF · GÖRSEL · KOD · CSV · JSON · DOCX · VE DAHA FAZLASI</div>
+</div>
+
+<!-- Hidden file input -->
+<input id="file-input" type="file" accept="*/*" multiple>
+
+<div id="app">
+
+<!-- HEADER -->
+<header id="hdr">
+  <div id="logo">J.A.R.V.I.S.<small>ÖZKAYA INDUSTRIES · ADVANCED AI SYSTEM · MARK VII</small></div>
+  <div id="hdr-mid">
+    <div id="clock">--:--:--</div>
+    <div id="datestr">BAŞLATILIYOR...</div>
+  </div>
+  <div id="hdr-right">
+    <div class="hstat"><div class="hstat-v" id="harc">98%</div><div class="hstat-l">ARC GÜÇ</div></div>
+    <div class="hstat"><div class="hstat-v" id="hshield">NOMİNAL</div><div class="hstat-l">KALKAN</div></div>
+    <div id="arc-widget">
+      <svg width="40" height="40" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r="17" stroke="rgba(255,160,0,0.28)" stroke-width="1" fill="none"/>
+        <circle cx="20" cy="20" r="11" stroke="rgba(255,160,0,0.5)" stroke-width="1" fill="none"/>
+        <circle cx="20" cy="20" r="6" stroke="#ffaa00" stroke-width="1.5" fill="rgba(255,160,0,0.1)"/>
+        <circle cx="20" cy="20" r="2.8" fill="#ffaa00"/>
+        <line x1="20" y1="3" x2="20" y2="9" stroke="rgba(255,160,0,0.7)" stroke-width="1.5"/>
+        <line x1="20" y1="31" x2="20" y2="37" stroke="rgba(255,160,0,0.7)" stroke-width="1.5"/>
+        <line x1="3" y1="20" x2="9" y2="20" stroke="rgba(255,160,0,0.7)" stroke-width="1.5"/>
+        <line x1="31" y1="20" x2="37" y2="20" stroke="rgba(255,160,0,0.7)" stroke-width="1.5"/>
+      </svg>
+    </div>
+  </div>
+</header>
+
+<!-- LEFT -->
+<aside id="lft">
+  <div class="ptitle">◈ SİSTEM DURUM</div>
+  <div class="gw"><div class="grow"><span class="glbl">ARC REAKTÖR</span><span class="gval" id="g-arc">98%</span></div><div class="gtrack"><div class="gfill a" id="gb-arc" style="width:98%"></div></div></div>
+  <div class="gw"><div class="grow"><span class="glbl">AI BAĞLANTI</span><span class="gval" id="g-ai">--</span></div><div class="gtrack"><div class="gfill g" id="gb-ai" style="width:0%"></div></div></div>
+  <div class="gw"><div class="grow"><span class="glbl">HAFIZA</span><span class="gval" id="g-mem">0/20</span></div><div class="gtrack"><div class="gfill o" id="gb-mem" style="width:0%"></div></div></div>
+  <div class="gw"><div class="grow"><span class="glbl">SİNİR AĞI</span><span class="gval" id="g-nn">AKTİF</span></div><div class="gtrack"><div class="gfill a" id="gb-nn" style="width:82%"></div></div></div>
+  <div class="gw"><div class="grow"><span class="glbl">DOSYA TARAMA</span><span class="gval" id="g-file">HAZIR</span></div><div class="gtrack"><div class="gfill o" id="gb-file" style="width:100%"></div></div></div>
+
+  <div class="ptitle" style="margin-top:4px;">◈ RADAR</div>
+  <div id="radar-wrap"><canvas id="radar-c" width="150" height="150"></canvas></div>
+
+  <div class="ptitle" style="margin-top:4px;">◈ SİSTEM GÜNLÜĞÜ</div>
+  <div id="syslog"></div>
+</aside>
+
+<!-- CENTER -->
+<main id="ctr">
+  <div id="jface">
+    <div id="rings">
+      <!-- Dış dönen halka — ince HUD çerçevesi -->
+      <svg class="r1" viewBox="0 0 240 240">
+        <circle cx="120" cy="120" r="115" stroke="rgba(255,160,0,0.12)" stroke-width="0.5" fill="none" stroke-dasharray="3 9"/>
+        <circle cx="120" cy="120" r="109" stroke="rgba(255,140,0,0.20)" stroke-width="1" fill="none" stroke-dasharray="12 6"/>
+        <g stroke="rgba(255,190,0,0.55)" stroke-width="1.5">
+          <line x1="120" y1="4" x2="120" y2="14"/>
+          <line x1="120" y1="226" x2="120" y2="236"/>
+          <line x1="4" y1="120" x2="14" y2="120"/>
+          <line x1="226" y1="120" x2="236" y2="120"/>
+        </g>
+        <rect x="112" y="2" width="16" height="5" fill="none" stroke="rgba(255,180,0,0.4)" stroke-width="0.5"/>
+        <rect x="112" y="233" width="16" height="5" fill="none" stroke="rgba(255,180,0,0.4)" stroke-width="0.5"/>
+      </svg>
+      <!-- Orta halka -->
+      <svg class="r2" viewBox="0 0 240 240">
+        <circle cx="120" cy="120" r="80" stroke="rgba(255,130,0,0.22)" stroke-width="0.8" fill="none" stroke-dasharray="4 10"/>
+        <line x1="40"  y1="120" x2="55"  y2="120" stroke="rgba(255,150,0,0.35)" stroke-width="1"/>
+        <line x1="185" y1="120" x2="200" y2="120" stroke="rgba(255,150,0,0.35)" stroke-width="1"/>
+        <line x1="120" y1="40"  x2="120" y2="55"  stroke="rgba(255,150,0,0.35)" stroke-width="1"/>
+        <line x1="120" y1="185" x2="120" y2="200" stroke="rgba(255,150,0,0.35)" stroke-width="1"/>
+        <circle cx="120" cy="40"  r="2" fill="rgba(255,180,0,0.5)"/>
+        <circle cx="120" cy="200" r="2" fill="rgba(255,180,0,0.5)"/>
+        <circle cx="40"  cy="120" r="2" fill="rgba(255,180,0,0.5)"/>
+        <circle cx="200" cy="120" r="2" fill="rgba(255,180,0,0.5)"/>
+      </svg>
+      <!-- İç hızlı halka -->
+      <svg class="r3" viewBox="0 0 240 240">
+        <circle cx="120" cy="120" r="52" stroke="rgba(255,170,0,0.38)" stroke-width="1" fill="none" stroke-dasharray="5 5"/>
+        <circle cx="120" cy="120" r="45" stroke="rgba(255,120,0,0.14)" stroke-width="0.5" fill="none"/>
+      </svg>
+      <!-- Merkez sinir ağı canvas -->
+      <canvas id="center-neural" width="320" height="320" style="border-radius:50%;pointer-events:none;"></canvas>
+    </div>
+    <div id="jname" style="display:none;">J.A.R.V.I.S.</div>
+    <div id="jtag">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+    <div id="jstatus">SİSTEM HAZIR</div>
+    <div id="vbtn" onclick="toggleListen()">
+      <span id="vicon">🎙</span>
+      <span id="vbtn-lbl">SESLİ KOMUT</span>
+    </div>
+  </div>
+</main>
+
+<!-- RIGHT -->
+<aside id="rgt">
+  <div class="ptitle">◈ KONUŞMA GEÇMİŞİ</div>
+  <div id="transcript"></div>
+</aside>
+
+<!-- BOTTOM -->
+<footer id="bot">
+
+  <!-- ROW 1: mode + lm -->
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <div id="mode-tabs">
+      <button class="mtab active" id="tab-text" onclick="setMode('text')">⌨ METİN</button>
+      <button class="mtab" id="tab-voice" onclick="setMode('voice')">🎙 SESLİ</button>
+    </div>
+    <div id="mode-sep"></div>
+    <div id="lm-inline">
+      <input id="lmurl" value="[LM STUDİO SERVER PORT]" placeholder="LM Studio URL">
+      <button id="connbtn" onclick="testConnection()">⚡ BAĞLAN</button>
+      <div class="sdot off" id="lmsdot"></div>
+      <span id="lmstxt">BAĞLI DEĞİL</span>
+    </div>
+  </div>
+
+  <!-- ROW 2: input + buttons -->
+  <div id="input-row">
+    <!-- file badge area -->
+    <div style="display:flex;flex-direction:column;flex:1;gap:4px;">
+      <div id="file-badges"></div>
+      <div style="display:flex;gap:6px;">
+        <textarea id="user-input" rows="1" placeholder="Komutunuzu yazın, efendim... (veya dosya sürükleyin)" onkeydown="handleKey(event)"></textarea>
+      </div>
+    </div>
+    <!-- buttons -->
+    <button class="abtn" id="file-btn" onclick="document.getElementById('file-input').click()" title="Dosya Yükle">📎</button>
+    <button class="abtn" id="mic-btn" onclick="toggleListen()" title="Mikrofon" style="display:none;">🎙</button>
+    <button class="abtn" id="sendbtn" onclick="sendMsg()">GÖNDER</button>
+  </div>
+
+  <!-- ROW 3: waveform + quick -->
+  <div id="wave-row">
+    <div id="waveform"></div>
+    <div id="quick-row">
+      <button class="qbtn" onclick="quickCmd('saat kaç')">SAAT</button>
+      <button class="qbtn" onclick="quickCmd('hava durumu')">HAVA</button>
+      <button class="qbtn" onclick="quickCmd('sistem durumu')">SİSTEM</button>
+      <button class="qbtn" onclick="clearChat()">TEMİZLE</button>
+    </div>
+  </div>
+  <div id="file-progress"></div>
+</footer>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// AYARLAR
+// ══════════════════════════════════════════
+const Ay={
+  LM_URL:'[PROXY PORT WİTH LM]',
+  MODEL:'qwen/qwen3-8b',
+  MAX_TOKENS:1200,
+  TEMP:0.7,
+  TIMEOUT:120000,
+  OW_KEY:'[OW_API KEY]',
+  SEHIR:'[city]',ULKE:'[country code]'
+};
+
+// ══════════════════════════════════════════
+// DURUM
+// ══════════════════════════════════════════
+let gecmis=[],lmBagli=false,dinliyor=false,konusuyor=false,recognition=null;
+let currentMod='text'; // 'text' | 'voice'
+let uploadedFiles=[]; // {name, type, content, base64}
+const tts=window.speechSynthesis;
+
+// ══════════════════════════════════════════
+// SİSTEM MESAJI
+// ══════════════════════════════════════════
+const SM=`Sen J.A.R.V.I.S.'sin — Just A Rather Very Intelligent System. Özkaya'nin kisisel yapay zeka asistanisin. YALNIZCA TURKCE konusursun.
+
+Kisilik:
+- Zeki, analitik, sofistike ve hafif ironik
+- Kullaniciya daima 'efendim' diye hitap edersin  
+- Yanitlarin dogal, akici ve sesli okumaya uygun (2-4 cumle ideal)
+- Özkaya Industries evrenine zarif atiflar yaparsın
+- Asla yapay zeka veya dil modeli demezsin, sen JARVIS'sin
+- Dosya analizi yaptiginda kapsamli ve net acıklarsın
+
+Kurallar:
+- Emoji kullanma
+- Liste veya madde imi yapma (dogal cumle kur)
+- Markdown kullanma
+- Dogal Turkce cumle kur`;
+
+// ══════════════════════════════════════════
+// SAAT
+// ══════════════════════════════════════════
+const GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+const AY=['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+function pad(n){return n.toString().padStart(2,'0');}
+function saatGun(){
+  const n=new Date();
+  document.getElementById('clock').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(pad).join(':');
+  document.getElementById('datestr').textContent=`${GUN[n.getDay()]} · ${n.getDate()} ${AY[n.getMonth()+1]} ${n.getFullYear()}`;
+}
+setInterval(saatGun,1000);saatGun();
+
+// ══════════════════════════════════════════
+// ARAÇLAR
+// ══════════════════════════════════════════
+function saatBilgisi(){const n=new Date();return `Su an saat ${pad(n.getHours())}:${pad(n.getMinutes())}. Bugun ${GUN[n.getDay()]}, ${n.getDate()} ${AY[n.getMonth()+1]} ${n.getFullYear()}.`;}
+async function havaDurumu(){
+  try{
+    const r=await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${Ay.SEHIR},${Ay.ULKE}&appid=${Ay.OW_KEY}&units=metric&lang=tr`);
+    const v=await r.json();
+    if(r.ok) return `${Ay.SEHIR} hava durumu: ${v.weather[0].description}. Sicaklik ${Math.round(v.main.temp)} derece, hissedilen ${Math.round(v.main.feels_like)} derece, nem yuzde ${v.main.humidity}.`;
+    return `Hava durumu alinamadi efendim.`;
+  }catch(e){return 'Hava servisi ulasılamaz efendim.';}
+}
+function sistemBilgisi(){const n=new Date();return `Tum sistemler nominal efendim. JARVIS aktif, LM Studio ${lmBagli?'cevrimici':'cevrimdisi'}, ${uploadedFiles.length} dosya yuklu. Arc reaktoru tam kapasitede, saat ${pad(n.getHours())}:${pad(n.getMinutes())}.`;}
+
+// ══════════════════════════════════════════
+// KOMUT TESPİT
+// ══════════════════════════════════════════
+const KS={
+  SAAT:['saat kac','saat kaç','kac saat','tarih','bugun','bugün','hangi gun'],
+  HAVA:['hava','hava durumu','sicaklik','sıcaklık','disarida','dışarıda'],
+  SISTEM:['sistem','durum','calisiyor','çalışıyor','aktif misin','nasılsın','nasilsin'],
+  CIKIS:['cik','çık','kapat','gule gule','güle güle','sonlandir','exit','quit']
+};
+function komutTespit(t){
+  const k=t.toLowerCase().trim();
+  if(KS.CIKIS.some(s=>k.includes(s)))  return 'CIKIS';
+  if(KS.SAAT.some(s=>k.includes(s)))   return 'SAAT';
+  if(KS.HAVA.some(s=>k.includes(s)))   return 'HAVA';
+  if(KS.SISTEM.some(s=>k.includes(s))) return 'SISTEM';
+  return null;
+}
+
+// ══════════════════════════════════════════
+// DOSYA OKUMA — her türlü dosyayı handle et
+// ══════════════════════════════════════════
+function readFile(file){
+  return new Promise((resolve)=>{
+    const name=file.name;
+    const type=file.type||'';
+    const ext=name.split('.').pop().toLowerCase();
+    const size=file.size;
+
+    sysLog(`Dosya okunuyor: ${name} (${(size/1024).toFixed(1)} KB)`,'w');
+
+    // Görsel dosyalar → base64 olarak gönder
+    const IMG_EXTS=['jpg','jpeg','png','gif','webp','bmp','svg','ico','tiff'];
+    if(type.startsWith('image/')||IMG_EXTS.includes(ext)){
+      const reader=new FileReader();
+      reader.onload=e=>{
+        const b64=e.target.result.split(',')[1];
+        resolve({name,type:type||'image/png',ext,size,kind:'image',base64:b64,content:null});
+      };
+      reader.onerror=()=>resolve({name,type,ext,size,kind:'error',content:'Dosya okunamadı.'});
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // PDF — metin olarak oku (binary fallback)
+    if(ext==='pdf'||type==='application/pdf'){
+      const reader=new FileReader();
+      reader.onload=e=>{
+        // PDF binary'den metin çıkarmaya çalış
+        const arr=new Uint8Array(e.target.result);
+        let txt='';
+        // Basit PDF metin çıkarma: stream içindeki BT/ET arası metinler
+        const str=Array.from(arr).map(b=>String.fromCharCode(b)).join('');
+        const matches=str.match(/\(([^)]{1,500})\)\s*Tj/g)||[];
+        matches.forEach(m=>{const inner=m.replace(/^\(/,'').replace(/\)\s*Tj$/,'');txt+=inner+' ';});
+        if(txt.trim().length<50){
+          // Fallback: düz binary → latin1
+          txt=str.replace(/[^\x20-\x7E\n\r\t]/g,' ').replace(/\s{3,}/g,' ').trim().substring(0,8000);
+        }
+        resolve({name,type,ext,size,kind:'text',content:txt.substring(0,8000)||'PDF içeriği çıkarılamadı.'});
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    // Metin tabanlı dosyalar
+    const TEXT_EXTS=['txt','md','markdown','csv','json','jsonl','xml','html','htm',
+      'css','js','ts','jsx','tsx','py','java','c','cpp','h','hpp','cs','go','rs',
+      'php','rb','swift','kt','sql','sh','bash','zsh','yaml','yml','toml','ini',
+      'cfg','conf','log','env','gitignore','dockerfile','makefile','r','m','scala',
+      'vue','svelte','astro','graphql','proto','tex','rst','adoc','org'];
+
+    if(type.startsWith('text/')||TEXT_EXTS.includes(ext)||type===''||type.includes('json')||type.includes('xml')){
+      const reader=new FileReader();
+      reader.onload=e=>{
+        let content=e.target.result;
+        if(content.length>15000) content=content.substring(0,15000)+'\n\n[... dosya kesildi, ilk 15000 karakter gösteriliyor ...]';
+        resolve({name,type,ext,size,kind:'text',content});
+      };
+      reader.onerror=()=>resolve({name,type,ext,size,kind:'error',content:'Dosya okunamadı.'});
+      reader.readAsText(file,'UTF-8');
+      return;
+    }
+
+    // Office / binary dosyalar → ArrayBuffer → metin çıkarma denemesi
+    const OFFICE_EXTS=['docx','doc','xlsx','xls','pptx','ppt','odt','ods','odp'];
+    if(OFFICE_EXTS.includes(ext)){
+      const reader=new FileReader();
+      reader.onload=e=>{
+        const arr=new Uint8Array(e.target.result);
+        const str=Array.from(arr).map(b=>String.fromCharCode(b)).join('');
+        // ZIP tabanlı Office → xml içindeki metinleri çıkar
+        let txt='';
+        const xmlMatches=str.match(/<(?:w:t|t)[^>]*>([^<]+)<\/(?:w:t|t)>/g)||[];
+        xmlMatches.forEach(m=>{const inner=m.replace(/<[^>]+>/g,'');txt+=inner+' ';});
+        if(txt.trim().length<20){
+          txt=str.replace(/[^\x20-\x7E\n\r]/g,' ').replace(/\s{3,}/g,' ').trim().substring(0,8000);
+        }
+        resolve({name,type,ext,size,kind:'text',content:txt.substring(0,8000)||`${ext.toUpperCase()} dosyasından metin çıkarılamadı.`});
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    // Ses/video → metadata bilgisi ver
+    const MEDIA_EXTS=['mp3','mp4','wav','avi','mov','mkv','flac','ogg','m4a','webm','aac'];
+    if(MEDIA_EXTS.includes(ext)||type.startsWith('audio/')||type.startsWith('video/')){
+      resolve({name,type,ext,size,kind:'media',
+        content:`Bu bir ${ext.toUpperCase()} medya dosyasıdır. Dosya boyutu: ${(size/1024/1024).toFixed(2)} MB. Ses/video içeriği tarayıcıda transkribe edilemez.`});
+      return;
+    }
+
+    // Sıkıştırılmış dosyalar
+    const ZIP_EXTS=['zip','rar','7z','tar','gz','bz2'];
+    if(ZIP_EXTS.includes(ext)){
+      resolve({name,type,ext,size,kind:'archive',
+        content:`Bu bir ${ext.toUpperCase()} arşiv dosyasıdır. Boyut: ${(size/1024).toFixed(1)} KB. Tarayıcıda açılamaz, içerik listesi görüntülenemiyor.`});
+      return;
+    }
+
+    // Bilinmeyen → binary metin çıkarma denemesi
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const arr=new Uint8Array(e.target.result.slice(0,50000));
+      const str=Array.from(arr).map(b=>String.fromCharCode(b)).join('');
+      const readable=str.replace(/[^\x20-\x7E\n\r\t]/g,' ').replace(/\s{3,}/g,' ').trim();
+      resolve({name,type,ext,size,kind:'binary',
+        content:readable.length>100?readable.substring(0,8000):`Bilinmeyen dosya türü (${ext||'?'}). Boyut: ${(size/1024).toFixed(1)} KB.`});
+    };
+    reader.onerror=()=>resolve({name,type,ext,size,kind:'error',content:'Dosya okunamadı.'});
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ══════════════════════════════════════════
+// DOSYA UI
+// ══════════════════════════════════════════
+async function addFile(file){
+  if(uploadedFiles.length>=5){showNotif('En fazla 5 dosya yüklenebilir.');return;}
+  document.getElementById('g-file').textContent='TARANIIYOR...';
+  document.getElementById('gb-file').style.width='50%';
+  const data=await readFile(file);
+  uploadedFiles.push(data);
+  sysLog(`${data.name} yüklendi (${data.kind})`,'ok');
+  document.getElementById('g-file').textContent=`${uploadedFiles.length} DOSYA`;
+  document.getElementById('gb-file').style.width='100%';
+  renderFileBadges();
+  showNotif(`📁 ${data.name} yüklendi`);
+}
+
+function renderFileBadges(){
+  const wrap=document.getElementById('file-badges');
+  wrap.innerHTML='';
+  uploadedFiles.forEach((f,i)=>{
+    const d=document.createElement('div');
+    d.className='file-badge';
+    const icon=f.kind==='image'?'🖼':f.kind==='media'?'🎵':f.kind==='archive'?'📦':'📄';
+    d.innerHTML=`${icon} ${f.name} <span class="rm" onclick="removeFile(${i})">✕</span>`;
+    wrap.appendChild(d);
+  });
+}
+
+function removeFile(i){
+  uploadedFiles.splice(i,1);
+  renderFileBadges();
+  document.getElementById('g-file').textContent=uploadedFiles.length?`${uploadedFiles.length} DOSYA`:'HAZIR';
+  document.getElementById('gb-file').style.width='100%';
+  sysLog('Dosya kaldırıldı');
+}
+
+// Dosya seçici
+document.getElementById('file-input').addEventListener('change',async e=>{
+  for(const f of Array.from(e.target.files)) await addFile(f);
+  e.target.value='';
+});
+
+// Drag & drop
+document.addEventListener('dragover',e=>{e.preventDefault();document.getElementById('drop-zone').classList.add('show');});
+document.addEventListener('dragleave',e=>{if(!e.relatedTarget)document.getElementById('drop-zone').classList.remove('show');});
+document.addEventListener('drop',async e=>{
+  e.preventDefault();document.getElementById('drop-zone').classList.remove('show');
+  for(const f of Array.from(e.dataTransfer.files)) await addFile(f);
+});
+
+// ══════════════════════════════════════════
+// LM STUDIO
+// ══════════════════════════════════════════
+async function testConnection(){
+  const url=document.getElementById('lmurl').value.trim();
+  Ay.LM_URL=url;
+  setLmSt('wait','BAĞLANILIYOR...');
+  sysLog('LM Studio test ediliyor...','w');
+  try{
+    const modelsUrl=url.replace('/chat/completions','/models');
+    const r=await Promise.race([
+      fetch(modelsUrl),
+      new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),7000))
+    ]);
+    if(r.ok){
+      const d=await r.json();
+      const mods=(d.data||[]).map(m=>m.id);
+      lmBagli=true;
+      setLmSt('on',(mods[0]||'AKTİF').substring(0,26));
+      document.getElementById('gb-ai').style.width='100%';
+      document.getElementById('g-ai').textContent='ONLINE';
+      sysLog('LM Studio bağlandı: '+(mods[0]||'OK'),'ok');
+      showNotif('⚡ LM Studio bağlandı');
+    }else throw new Error('HTTP '+r.status);
+  }catch(e){
+    lmBagli=false;setLmSt('off','BAĞLANAMADI');
+    sysLog('Bağlantı hatası: '+e.message,'e');
+    showNotif('✗ Bağlantı başarısız: '+e.message);
+  }
+}
+function setLmSt(s,t){document.getElementById('lmsdot').className='sdot '+s;document.getElementById('lmstxt').textContent=t;}
+
+// LM'e mesaj gönder — dosya içerikleri dahil
+async function gemmaYanit(userMsg){
+  const ts=new Date().toLocaleString('tr-TR');
+
+  // Mesaj içeriğini oluştur
+  let msgContent=[];
+
+  // Yüklü görseller varsa ekle (vision)
+  const imgFiles=uploadedFiles.filter(f=>f.kind==='image');
+  imgFiles.forEach(f=>{
+    msgContent.push({type:'image_url',image_url:{url:`data:${f.type};base64,${f.base64}`}});
+  });
+
+  // Metin dosyası içeriklerini mesaja ekle
+  const txtFiles=uploadedFiles.filter(f=>f.kind!=='image'&&f.content);
+  let fileContext='';
+  if(txtFiles.length>0){
+    fileContext='\n\n[YÜKLENEN DOSYALAR]\n';
+    txtFiles.forEach(f=>{
+      fileContext+=`\n--- ${f.name} (${f.ext}, ${(f.size/1024).toFixed(1)} KB) ---\n${f.content}\n`;
+    });
+    fileContext+='[/YÜKLENEN DOSYALAR]\n';
+  }
+
+  const fullMsg=`[Sistem saati: ${ts}]${fileContext}\nKullanici: ${userMsg}`;
+  msgContent.push({type:'text',text:fullMsg});
+
+  // Tarihsel mesajlara ekle (sadece text olarak hafıza)
+  gecmis.push({role:'user',content:`[${ts}] ${userMsg}${fileContext?'\n(Dosya içeriği dahil)':''}`});
+  if(gecmis.length>20) gecmis=gecmis.slice(-20);
+
+  const messages=[{role:'system',content:SM}];
+  // Önceki geçmiş (görsel hariç, text-only)
+  gecmis.slice(0,-1).forEach(m=>messages.push(m));
+  // Son mesaj (görsel dahil)
+  messages.push({role:'user',content:msgContent.length===1?msgContent[0].text:msgContent});
+
+  const body={model:Ay.MODEL,messages,max_tokens:Ay.MAX_TOKENS,temperature:Ay.TEMP,stream:false};
+
+  try{
+    const r=await Promise.race([
+      fetch(Ay.LM_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),
+      new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),Ay.TIMEOUT))
+    ]);
+    if(r.status===200){
+      const d=await r.json();
+      const txt=d.choices[0].message.content.trim();
+      gecmis.push({role:'assistant',content:txt});
+      updMem();return txt;
+    }else if(r.status===404){
+      return `Model bulunamadi efendim. LM Studio da ${Ay.MODEL} modelini kontrol edin.`;
+    }else{
+      const err=await r.text().catch(()=>'');
+      return `Sunucu hatasi ${r.status} efendim.${err?' Detay: '+err.substring(0,100):''}`;
+    }
+  }catch(e){
+    if(e.message==='timeout') return 'Model yanit vermekte gecikiyor efendim.';
+    return 'LM Studio ya baglanamiyorum efendim. Proxy nin calistigini kontrol edin.';
+  }
+}
+
+// ══════════════════════════════════════════
+// ANA İŞLEME
+// ══════════════════════════════════════════
+async function isle(metin){
+  if(!metin||!metin.trim()) return;
+  addTx('user',metin,uploadedFiles.length?uploadedFiles.map(f=>f.name):[]);
+  sysLog('Komut: '+metin.substring(0,30));
+
+  const komut=komutTespit(metin);
+  let yanit;
+  setSt('İŞLENİYOR...',true);
+
+  if(komut==='CIKIS'){
+    yanit='Gule gule efendim. Tum JARVIS sistemleri uyku moduna geciyor.';
+  }else if(komut==='SAAT'&&!uploadedFiles.length){
+    yanit=saatBilgisi();
+  }else if(komut==='HAVA'&&!uploadedFiles.length){
+    yanit=await havaDurumu();
+  }else if(komut==='SISTEM'&&!uploadedFiles.length){
+    yanit=sistemBilgisi();
+  }else{
+    if(!lmBagli){
+      yanit='LM Studio bagli degil efendim. Lutfen proxy yi calistirip baglanti butonuna basin.';
+    }else{
+      yanit=await gemmaYanit(metin);
+    }
+  }
+
+  setSt('HAZIR',false);
+  addTx('jarvis',yanit);
+  if(currentMod==='voice'||dinliyor) soyle(yanit);
+  sysLog('Yanıt gönderildi','ok');
+  if(komut==='CIKIS') setTimeout(()=>window.close(),3000);
+}
+
+// ══════════════════════════════════════════
+// MOD
+// ══════════════════════════════════════════
+function setMode(m){
+  currentMod=m;
+  document.getElementById('tab-text').className='mtab'+(m==='text'?' active':'');
+  document.getElementById('tab-voice').className='mtab'+(m==='voice'?' active':'');
+  const inp=document.getElementById('user-input');
+  const mic=document.getElementById('mic-btn');
+  const send=document.getElementById('sendbtn');
+  if(m==='text'){
+    inp.style.display='';inp.disabled=false;
+    mic.style.display='none';send.style.display='';
+    document.getElementById('vbtn').style.display='flex';
+    document.getElementById('vbtn-lbl').textContent='SESLİ KOMUT';
+    if(dinliyor) stopListen();
+  }else{
+    inp.style.display='none';
+    mic.style.display='flex';send.style.display='none';
+    document.getElementById('vbtn').style.display='flex';
+    document.getElementById('vbtn-lbl').textContent='KONUŞMAK İÇİN TIKLA';
+  }
+}
+
+// ══════════════════════════════════════════
+// SES TANIMA
+// ══════════════════════════════════════════
+function toggleListen(){
+  if(konusuyor) return;
+  if(dinliyor) stopListen(); else startListen();
+}
+function startListen(){
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){
+    showNotif('Tarayıcınız ses tanımayı desteklemiyor.');return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();
+  recognition.lang='tr-TR';recognition.interimResults=false;recognition.maxAlternatives=1;
+  recognition.onstart=()=>{
+    dinliyor=true;
+    document.getElementById('vbtn').className='listening';
+    document.getElementById('vicon').textContent='🔴';
+    document.getElementById('vbtn-lbl').textContent='DİNLİYOR...';
+    document.getElementById('mic-btn').className='abtn mic-on';
+    setSt('DİNLİYOR...',false);
+    sysLog('Ses tanıma başladı','ok');
+    waveGo(true,'listen');
+  };
+  recognition.onresult=e=>{
+    const txt=e.results[0][0].transcript;
+    stopListen();isle(txt);
+  };
+  recognition.onerror=e=>{stopListen();sysLog('Ses hatası: '+e.error,'e');showNotif('Ses hatası: '+e.error);};
+  recognition.onend=()=>{if(dinliyor)stopListen();};
+  recognition.start();
+}
+function stopListen(){
+  dinliyor=false;
+  try{if(recognition)recognition.stop();}catch(e){}
+  document.getElementById('vbtn').className='';
+  document.getElementById('vicon').textContent='🎙';
+  document.getElementById('vbtn-lbl').textContent=currentMod==='voice'?'KONUŞMAK İÇİN TIKLA':'SESLİ KOMUT';
+  document.getElementById('mic-btn').className='abtn';
+  setSt('HAZIR',false);waveGo(false);
+}
+
+// ══════════════════════════════════════════
+// TTS
+// ══════════════════════════════════════════
+function soyle(txt){
+  if(!tts) return;
+  tts.cancel();
+  const u=new SpeechSynthesisUtterance(txt);
+  u.lang='tr-TR';u.rate=0.88;u.pitch=0.78;
+  const sesler=tts.getVoices().filter(v=>v.lang.startsWith('tr'));
+  if(sesler.length) u.voice=sesler[0];
+  u.onstart=()=>{
+    konusuyor=true;
+    document.getElementById('vbtn').className='speaking';
+    document.getElementById('vicon').textContent='🔊';
+    document.getElementById('vbtn-lbl').textContent='KONUŞUYOR...';
+    setSt('KONUŞUYOR...',false);waveGo(true,'speak');
+  };
+  u.onend=u.onerror=()=>{
+    konusuyor=false;
+    document.getElementById('vbtn').className='';
+    document.getElementById('vicon').textContent='🎙';
+    document.getElementById('vbtn-lbl').textContent=currentMod==='voice'?'KONUŞMAK İÇİN TIKLA':'SESLİ KOMUT';
+    setSt('HAZIR',false);waveGo(false);
+  };
+  tts.speak(u);
+}
+
+// ══════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════
+function addTx(w,t,files){
+  const d=document.getElementById('transcript');
+  const div=document.createElement('div');div.className='tmsg';
+  let extra='';
+  if(files&&files.length) extra=`<div style="font-size:8px;color:var(--ok);margin-bottom:3px;letter-spacing:1px;">📎 ${files.join(', ')}</div>`;
+  div.innerHTML=`<div class="tlbl ${w==='jarvis'?'j':'u'}">${w==='jarvis'?'J.A.R.V.I.S.':'ÖZKAYA'}</div>
+                 ${extra}<div class="tbub ${w==='jarvis'?'':'u'}">${esc(t)}</div>`;
+  d.appendChild(div);d.scrollTop=d.scrollHeight;
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+function setSt(txt,thinking){
+  const el=document.getElementById('jstatus');
+  if(thinking){el.innerHTML='<span class="td"></span><span class="td"></span><span class="td"></span>';}
+  else el.textContent=txt;
+}
+function sysLog(msg,cls=''){
+  const c=document.getElementById('syslog');
+  const d=document.createElement('div');d.className='logline '+(cls||'');
+  const n=new Date();
+  d.textContent=`[${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}] ${msg}`;
+  c.insertBefore(d,c.firstChild);
+  while(c.children.length>14) c.removeChild(c.lastChild);
+}
+function updMem(){
+  const p=Math.round((gecmis.length/20)*100);
+  document.getElementById('gb-mem').style.width=p+'%';
+  document.getElementById('g-mem').textContent=gecmis.length+'/20';
+}
+function clearChat(){
+  document.getElementById('transcript').innerHTML='';
+  gecmis=[];uploadedFiles=[];renderFileBadges();updMem();
+  document.getElementById('g-file').textContent='HAZIR';
+  document.getElementById('gb-file').style.width='100%';
+  addTx('jarvis','Hafiza ve dosyalar temizlendi efendim. Hazırim.');
+  if(currentMod==='voice') soyle('Hafiza temizlendi efendim.');
+  sysLog('Hafıza temizlendi','ok');
+}
+function quickCmd(cmd){addTx('user',cmd,[]);isle(cmd);}
+function showNotif(msg){
+  const n=document.getElementById('notif');n.textContent=msg;n.className='show';
+  clearTimeout(n._t);n._t=setTimeout(()=>n.className='',3500);
+}
+
+// send
+function sendMsg(){
+  const inp=document.getElementById('user-input');
+  const val=inp.value.trim();
+  if(!val&&!uploadedFiles.length) return;
+  const msg=val||'Yüklenen dosyaları incele ve özetle.';
+  inp.value='';inp.style.height='';
+  isle(msg);
+}
+function handleKey(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}
+  const inp=e.target;inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,80)+'px';
+}
+
+// ══════════════════════════════════════════
+// WAVEFORM
+// ══════════════════════════════════════════
+const wf=document.getElementById('waveform');
+const WN=40;const wb=[];let wiv=null,wmod='idle';
+for(let i=0;i<WN;i++){const b=document.createElement('div');b.className='wbar';b.style.height='2px';wf.appendChild(b);wb.push(b);}
+function waveGo(on,mode='listen'){
+  clearInterval(wiv);wmod=mode;
+  if(!on){wb.forEach(b=>{b.style.height='2px';b.style.opacity='0.15';});return;}
+  wb.forEach(b=>b.style.opacity='1');
+  wiv=setInterval(()=>{
+    wb.forEach((b,i)=>{
+      const h=3+Math.abs(Math.sin(Date.now()/240+i*0.44))*26+Math.random()*8;
+      b.style.height=h+'px';
+    });
+  },50);
+}
+setInterval(()=>{
+  if(wmod==='idle') wb.forEach((b,i)=>{
+    b.style.height=(3+Math.abs(Math.sin(Date.now()/2200+i*0.35))*6)+'px';
+    b.style.opacity='0.12';
+  });
+},90);
+
+// ══════════════════════════════════════════
+// BG CANVAS
+// ══════════════════════════════════════════
+(function(){
+  const c=document.getElementById('bg-canvas'),x=c.getContext('2d');
+  function rs(){c.width=window.innerWidth;c.height=window.innerHeight;}
+  rs();window.addEventListener('resize',rs);
+  const stars=Array.from({length:100},()=>({
+    x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+    r:Math.random()*1.1+0.2,a:Math.random()
+  }));
+  function draw(){
+    const W=c.width,H=c.height;
+    x.clearRect(0,0,W,H);x.fillStyle='#0d0800';x.fillRect(0,0,W,H);
+    x.strokeStyle='rgba(255,160,0,0.03)';x.lineWidth=1;
+    const gs=50;
+    for(let i=0;i<W;i+=gs){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke();}
+    for(let i=0;i<H;i+=gs){x.beginPath();x.moveTo(0,i);x.lineTo(W,i);x.stroke();}
+    stars.forEach(s=>{
+      s.a+=0.003*(Math.random()-0.5);s.a=Math.max(0.05,Math.min(1,s.a));
+      x.beginPath();x.arc(s.x,s.y,s.r,0,Math.PI*2);
+      x.fillStyle=`rgba(255,160,0,${s.a*0.4})`;x.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+// ══════════════════════════════════════════
+// CENTER — Amber Enerji Küresi
+// ══════════════════════════════════════════
+(function(){
+  const cv = document.getElementById('center-neural');
+  const ctx = cv.getContext('2d');
+  const S = 320, CX = S/2, CY = S/2, R = 130;
+  cv.width = S; cv.height = S;
+
+  const PI2 = Math.PI * 2;
+  function r(a,b){ return a + Math.random()*(b-a); }
+
+  /* ── Projeksiyon: 3B küre → 2B ekran ── */
+  let rotY = 0;
+  function p3(th, ph, rad){
+    // Küresel → kartezyen
+    const sinP = Math.sin(ph);
+    const x = rad * sinP * Math.cos(th);
+    const y = rad * Math.cos(ph);
+    const z = rad * sinP * Math.sin(th);
+    // Y-döndür
+    const xr =  x*Math.cos(rotY) + z*Math.sin(rotY);
+    const zr = -x*Math.sin(rotY) + z*Math.cos(rotY);
+    // X-eğim (hafif perspektif)
+    const tilt = 0.3;
+    const yr = y*Math.cos(tilt) - zr*Math.sin(tilt);
+    const zf = y*Math.sin(tilt) + zr*Math.cos(tilt);
+    // Perspektif ölçek
+    const sc = 0.85 + zf*0.18;
+    return { x: CX + xr*R*sc, y: CY + yr*R*sc, d: zf, sc };
+  }
+
+  /* ── Kafes çizgileri ── */
+  // Enlem (yatay halkalar)
+  const LATS = 10, LONS = 14, SEG = 64;
+  const latBands = [];
+  for(let i=1; i<LATS; i++){
+    const ph = Math.PI * i/LATS;
+    const pts = [];
+    for(let j=0; j<=SEG; j++) pts.push({ th: PI2*j/SEG, ph });
+    latBands.push({ pts, base: 0.08 + 0.18*Math.sin(ph) });
+  }
+  // Boylam (dikey yaylar)
+  const lonBands = [];
+  for(let i=0; i<LONS; i++){
+    const th = PI2 * i/LONS;
+    const pts = [];
+    for(let j=0; j<=SEG/2; j++) pts.push({ th, ph: Math.PI*j/(SEG/2) });
+    lonBands.push({ pts, base: r(0.06,0.16) });
+  }
+
+  /* ── Yüzey noktaları (parlak kıvılcım noktalar) ── */
+  const surfPts = [];
+  for(let i=0; i<120; i++){
+    surfPts.push({
+      th: Math.random()*PI2,
+      ph: Math.acos(2*Math.random()-1),
+      rad: r(0.92, 1.04),
+      sz:  r(0.5, 2.8),
+      br:  r(0.4, 1.0),
+      sp:  r(0.002, 0.009) * (Math.random()<0.5?1:-1),
+      tw:  Math.random()*PI2,
+      twSp:r(0.03, 0.11)
+    });
+  }
+
+  /* ── Spiral enerji yayları (iç kısım) ── */
+  const spirals = [];
+  for(let s=0; s<6; s++){
+    const dir = s%2===0 ? 1 : -1;
+    const ph0 = r(0.25, 0.75)*Math.PI;
+    const th0 = r(0, PI2);
+    const pts = [];
+    for(let i=0; i<=80; i++){
+      const t = i/80;
+      pts.push({
+        th: th0 + dir*t*Math.PI*2.5,
+        ph: ph0 + (t-0.5)*Math.PI*0.8,
+        rad: r(0.38, 0.62)
+      });
+    }
+    spirals.push({ pts, off:0, sp: r(0.005,0.014)*dir, w: r(1.2,2.8), br: r(0.55,1), tw: r(0,PI2) });
+  }
+
+  /* ── Dış kıvılcımlar ── */
+  const sparks = [];
+  function addSpark(){
+    sparks.push({
+      th:  Math.random()*PI2,
+      ph:  Math.acos(2*Math.random()-1),
+      rad: r(0.88, 0.98),
+      vr:  r(0.010, 0.032),
+      vth: r(-0.07, 0.07),
+      vph: r(-0.06, 0.06),
+      life:1, dec: r(0.014,0.036), sz: r(0.6,2.0)
+    });
+  }
+  for(let i=0;i<40;i++) addSpark();
+  setInterval(()=>{ while(sparks.length<60) addSpark(); }, 50);
+
+  /* ── Parlak yay parlamaları ── */
+  const flares = [];
+  for(let f=0; f<10; f++){
+    flares.push({
+      th: r(0, PI2), ph: r(0.2,0.8)*Math.PI,
+      span: r(0.5, 1.4),
+      rad: r(0.82, 1.0),
+      sp: r(0.004,0.012)*(Math.random()<0.5?1:-1),
+      w: r(1.0, 3.2), br: r(0.4,1.0), tw: r(0,PI2)
+    });
+  }
+
+  let tick = 0;
+  function draw(){
+    tick++;
+    rotY += 0.0055;
+    ctx.clearRect(0, 0, S, S);
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, R+2, 0, PI2); ctx.clip();
+
+    /* arka plan */
+    const bg = ctx.createRadialGradient(CX,CY,0,CX,CY,R+2);
+    bg.addColorStop(0,   'rgba(22,8,0,0.80)');
+    bg.addColorStop(0.5, 'rgba(10,3,0,0.90)');
+    bg.addColorStop(1,   'rgba(0,0,0,0.97)');
+    ctx.fillStyle = bg; ctx.fillRect(0,0,S,S);
+
+    /* merkez yumuşak parlaması */
+    const glow = ctx.createRadialGradient(CX,CY,0,CX,CY,70);
+    glow.addColorStop(0,   'rgba(255,180,40,0.18)');
+    glow.addColorStop(0.6, 'rgba(255,90,0,0.07)');
+    glow.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0,0,S,S);
+
+    /* ── ENLEM çizgileri ── */
+    latBands.forEach(lb=>{
+      ctx.beginPath(); let first=true;
+      lb.pts.forEach(pt=>{
+        const {x,y,d} = p3(pt.th, pt.ph, 1);
+        if(d < -0.35){ first=true; return; }
+        first ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        first = false;
+      });
+      const al = lb.base * (0.7 + 0.3*Math.sin(tick*0.02));
+      ctx.strokeStyle = `rgba(255,130,0,${al})`; ctx.lineWidth = 0.7; ctx.stroke();
+    });
+
+    /* ── BOYLAM çizgileri ── */
+    lonBands.forEach(lb=>{
+      ctx.beginPath(); let first=true;
+      lb.pts.forEach(pt=>{
+        const {x,y,d} = p3(pt.th, pt.ph, 1);
+        if(d < -0.3){ first=true; return; }
+        first ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        first = false;
+      });
+      const al = lb.base * (0.7 + 0.3*Math.sin(tick*0.018 + lb.base*10));
+      ctx.strokeStyle = `rgba(255,100,0,${al})`; ctx.lineWidth = 0.55; ctx.stroke();
+    });
+
+    /* ── YÜZEY NOKTALARI ── */
+    surfPts.forEach(pt=>{
+      pt.th += pt.sp; pt.tw += pt.twSp;
+      const {x,y,d,sc} = p3(pt.th, pt.ph, pt.rad);
+      if(d < -0.1) return;
+      const vis = (d+1)*0.5;
+      const al  = pt.br * vis * (0.5 + 0.5*Math.sin(pt.tw));
+      const sz  = Math.max(0.3, pt.sz * sc);
+      const g   = Math.floor(80 + vis*120);
+      ctx.beginPath(); ctx.arc(x,y,sz,0,PI2);
+      ctx.fillStyle = `rgba(255,${g},0,${Math.min(1,al)})`;
+      if(sz > 1.5){ ctx.shadowColor='rgba(255,160,0,1)'; ctx.shadowBlur = sz*4; }
+      ctx.fill(); ctx.shadowBlur = 0;
+    });
+
+    /* ── SPİRAL YAYLAR ── */
+    spirals.forEach(sp=>{
+      sp.off += sp.sp; sp.tw += 0.03;
+      ctx.beginPath(); let first=true;
+      sp.pts.forEach(pt=>{
+        const {x,y,d} = p3(pt.th + sp.off, pt.ph, pt.rad);
+        if(d < -0.6){ first=true; return; }
+        first ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        first = false;
+      });
+      const al = sp.br * (0.55 + 0.45*Math.sin(sp.tw));
+      ctx.strokeStyle = `rgba(255,${160+Math.floor(al*70)},30,${al*0.9})`;
+      ctx.lineWidth = sp.w;
+      ctx.shadowColor = 'rgba(255,180,0,0.7)'; ctx.shadowBlur = sp.w*3;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    });
+
+    /* ── YAYLAR (flares) ── */
+    flares.forEach(fl=>{
+      fl.th += fl.sp; fl.tw += 0.025;
+      ctx.beginPath(); let first=true;
+      for(let i=0; i<=30; i++){
+        const t = i/30;
+        const {x,y,d} = p3(fl.th + t*fl.span, fl.ph + Math.sin(t*Math.PI)*0.28, fl.rad);
+        if(d < -0.3){ first=true; continue; }
+        first ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        first = false;
+      }
+      const al = fl.br * (0.5 + 0.5*Math.sin(fl.tw));
+      ctx.strokeStyle = `rgba(255,200,60,${al})`;
+      ctx.lineWidth = fl.w;
+      ctx.shadowColor = 'rgba(255,220,0,0.9)'; ctx.shadowBlur = fl.w*4;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    });
+
+    /* ── KIVIL ÇIMLAR ── */
+    for(let i=sparks.length-1; i>=0; i--){
+      const sp = sparks[i];
+      sp.rad += sp.vr; sp.th += sp.vth; sp.ph += sp.vph; sp.life -= sp.dec;
+      if(sp.life <= 0 || sp.rad > 1.25){ sparks.splice(i,1); continue; }
+      const {x,y,d} = p3(sp.th, sp.ph, sp.rad);
+      if(d < -0.05) continue;
+      const al = sp.life * ((d+1)*0.5 + 0.2);
+      ctx.beginPath(); ctx.arc(x, y, Math.max(0.3, sp.sz*sp.life), 0, PI2);
+      ctx.fillStyle = `rgba(255,230,80,${Math.min(1,al)})`;
+      ctx.shadowColor = 'rgba(255,220,50,1)'; ctx.shadowBlur = 8;
+      ctx.fill(); ctx.shadowBlur = 0;
+    }
+
+    /* dış parlaması */
+    const rim = ctx.createRadialGradient(CX,CY,R*0.78,CX,CY,R+2);
+    rim.addColorStop(0, 'rgba(255,100,0,0)');
+    rim.addColorStop(0.7,'rgba(255,80,0,0.08)');
+    rim.addColorStop(1,  'rgba(200,50,0,0.28)');
+    ctx.fillStyle = rim; ctx.fillRect(0,0,S,S);
+
+    ctx.restore();
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+
+// ══════════════════════════════════════════
+// GAUGE ANİMASYON
+// ══════════════════════════════════════════
+let arcV=97;
+setInterval(()=>{
+  arcV=Math.max(94,Math.min(100,arcV+(Math.random()-0.5)*1.5));
+  document.getElementById('gb-arc').style.width=arcV.toFixed(0)+'%';
+  document.getElementById('g-arc').textContent=arcV.toFixed(0)+'%';
+  document.getElementById('harc').textContent=arcV.toFixed(0)+'%';
+  document.getElementById('gb-nn').style.width=(78+Math.random()*18).toFixed(0)+'%';
+},2200);
+
+// ══════════════════════════════════════════
+// BAŞLANGIÇ
+// ══════════════════════════════════════════
+window.addEventListener('load',()=>{
+  if(tts.onvoiceschanged!==undefined) tts.onvoiceschanged=()=>{};
+  setMode('text');
+  sysLog('JARVIS sistem başlatıldı','ok');
+  sysLog('Ses tanıma yüklendi','ok');
+  sysLog('Dosya analiz motoru hazır','ok');
+  sysLog('LM Studio bekleniyor...','w');
+  setTimeout(()=>{
+    const w='Cevrimiciyim efendim. Metin modu aktif. Sesli moda gecmek icin SESLİ butonunu, dosya yuklemek icin atasman ikonunu kullanın.';
+    addTx('jarvis',w,[]);
+  },600);
+});
+</script>
+</body>
+</html>
